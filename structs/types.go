@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+	"strconv"
 )
 
 // 交易
@@ -189,4 +190,94 @@ func (s *UserBotSetting) UnmarshalJSON(data []byte) error {
 	s.IsZero = aux.IsZero
 	s.PrivateKey = aux.PrivateKey
 	return nil
+}
+
+func mapToUserBotSetting(setting map[string]string) (*UserBotSetting, error) {
+	chainID, ok := new(big.Int).SetString(setting["chain_id"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse chain_id: %s", setting["chain_id"])
+	}
+	minWethAmount, ok := new(big.Int).SetString(setting["min_weth_amount"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse min_weth_amount: %s", setting["min_weth_amount"])
+	}
+	minBusdAmount, ok := new(big.Int).SetString(setting["min_busd_amount"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse min_busd_amount: %s", setting["min_busd_amount"])
+	}
+	minUsdtAmount, ok := new(big.Int).SetString(setting["min_usdt_amount"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse min_usdt_amount from string: %s", setting["min_usdt_amount"])
+	}
+	minUsdcAmount, ok := new(big.Int).SetString(setting["min_usdc_amount"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse min_usdc_amount from string: %s", setting["min_usdc_amount"])
+	}
+	sellAllWethLine, ok := new(big.Int).SetString(setting["sell_all_weth_line"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse sell_all_weth_line from string: %s", setting["sell_all_weth_line"])
+	}
+	sellAllBusdLine, ok := new(big.Int).SetString(setting["sell_all_busd_line"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse sell_all_busd_line from string: %s", setting["sell_all_busd_line"])
+	}
+	sellAllUsdtLine, ok := new(big.Int).SetString(setting["sell_all_usdt_line"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse sell_all_usdt_line from string: %s", setting["sell_all_usdt_line"])
+	}
+	sellAllUsdcLine, ok := new(big.Int).SetString(setting["sell_all_usdc_line"], 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse sell_all_usdc_line from string: %s", setting["sell_all_usdc_line"])
+	}
+	stopAt, err := strconv.ParseInt(setting["stop_at"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse stop_at: %s", setting["stop_at"])
+	}
+	isSellAll, err := strconv.ParseInt(setting["is_sell_all"], 10, 8)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse is_sell_all: %s", setting["is_sell_all"])
+	}
+	stopWin, err := strconv.ParseInt(setting["stop_win"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse stop_win: %s", setting["stop_win"])
+	}
+	stopWinMin, err := strconv.ParseInt(setting["stop_win_min"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse stop_win_min: %s", setting["stop_win_min"])
+	}
+	avoidHoneyPot, err := strconv.ParseInt(setting["avoid_honey_pot"], 10, 8)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse avoid_honey_pot: %s", setting["avoid_honey_pot"])
+	}
+	isZero, err := strconv.ParseInt(setting["is_zero"], 10, 8)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse is_zero: %s", setting["is_zero"])
+	}
+	id, err := strconv.ParseInt(setting["id"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse id: %s", setting["id"])
+	}
+	userBotSetting := &UserBotSetting{
+		ID:              id,
+		WhaleAddress:    common.HexToAddress(setting["whale_address"]),
+		WhaleName:       setting["whale_name"],
+		ChainID:         chainID,
+		ListenBase:      setting["listen_base"],
+		MinWethAmount:   minWethAmount,
+		MinBusdAmount:   minBusdAmount,
+		MinUsdtAmount:   minUsdtAmount,
+		MinUsdcAmount:   minUsdcAmount,
+		SellAllWethLine: sellAllWethLine,
+		SellAllBusdLine: sellAllBusdLine,
+		SellAllUsdtLine: sellAllUsdtLine,
+		SellAllUsdcLine: sellAllUsdcLine,
+		StopAt:          stopAt,
+		IsSellAll:       int8(isSellAll),
+		StopWin:         stopWin,
+		StopWinMin:      stopWinMin,
+		AvoidHoneyPot:   int8(avoidHoneyPot),
+		IsZero:          int8(isZero),
+		PrivateKey:      setting["private_key"],
+	}
+	return userBotSetting, nil
 }
