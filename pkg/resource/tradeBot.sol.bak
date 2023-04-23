@@ -1,0 +1,387 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.7.0 <0.9.0;
+
+library SafeMath {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, "SafeMath: addition overflow");
+
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b <= a, "SafeMath: subtraction overflow");
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0 || b == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, "SafeMath: multiplication overflow");
+
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        require(b > 0, "SafeMath: division by zero");
+        uint256 c = a / b;
+
+        return c;
+    }
+}
+
+
+library TransferHelper {
+    function safeTransfer(address token, address to, uint value) internal {
+        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(0xa9059cbb, to, value));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TransferHelper: TRANSFER_FAILED');
+    }
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function token0() external view returns (address);
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+}
+
+interface IUniswapV2Router02 {
+    function factory() external pure returns (address);
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+interface IERC20 {
+    function decimals() external view returns (uint8);
+    function balanceOf(address owner) external view returns (uint);
+    function transfer(address to, uint value) external returns (bool);
+    function approve(address _spender, uint _value) external returns (bool);
+}
+
+interface IChiToken {
+    function freeUpTo(uint256 value) external returns (uint256 freed);
+    function mint(uint256 value) external;
+}
+
+contract TradeBot {
+
+    struct TradeLog {
+        uint id;
+        address pairAddress;
+        address token0;
+        address token1;
+        uint256 amountIn;
+        uint256 amountOut;
+        uint256 timestamp;
+        bool isBuy;
+        uint256 price;
+    }
+
+    mapping(uint256 => TradeLog) private tradeLogs;
+
+    uint256 private tradeCount;
+
+    address public immutable owner;
+
+    address public immutable WBNB;
+
+    address public immutable BUSD;
+
+    address public immutable USDC;
+
+    address public immutable USDT;
+
+    address payable private administrator;
+
+    mapping(address => bool) private whiteList;
+
+    IChiToken constant chiToken = IChiToken(0x0000000000004946c0e9F43F4Dee607b0eF1fA1c);
+
+
+    receive() external payable {}
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Unauthorized access.");
+        _;
+    }
+
+    modifier onlyWhite() {
+        require(whiteList[msg.sender], "Unauthorized action.");
+        _;
+    }
+
+    modifier gasTokenRefund {
+        uint256 gasStart = gasleft();
+        _;
+        chiToken.freeUpTo((21000 + gasStart - gasleft() + 16 * msg.data.length + 14154) / 41947);
+    }
+
+    constructor(address sender,address wbnb, address busd, address usdt, address usdc) {
+        owner = sender;
+        administrator = payable(sender);
+        whiteList[sender] = true;
+        WBNB = wbnb;
+        BUSD = busd;
+        USDT = usdt;
+        USDC = usdc;
+    }
+
+    function mintChiToken(uint256 amount) external virtual onlyOwner {
+        chiToken.mint(amount);
+    }
+
+    function sendTokenBack(address token, uint256 amount) external virtual onlyOwner {
+        IERC20(token).transfer(owner, amount);
+    }
+
+    function sendTokenBackAll(address token) external virtual onlyOwner {
+        IERC20(token).transfer(owner, IERC20(token).balanceOf(address(this)));
+    }
+
+    function sendBnbBack() external virtual onlyOwner {
+        administrator.transfer(address(this).balance);
+    }
+
+    function setWhite(address account) external virtual onlyOwner {
+        whiteList[account] = true;
+    }
+
+    function balanceOf(address token, address user) public view returns (uint balance) {
+        return IERC20(token).balanceOf(user);
+    }
+
+    function decimals(address token) public view returns (uint8 decimal) {
+        return IERC20(token).decimals();
+    }
+
+    function getAmountsOut(address router, uint amountIn, address[] memory path) public view returns (uint[] memory amounts) {
+        return IUniswapV2Router02(router).getAmountsOut(amountIn, path);
+    }
+
+    function getAmountOut(address router, uint amountIn, uint reserveIn, uint reserveOut) public pure returns (uint amountOut) {
+        return IUniswapV2Router02(router).getAmountOut(amountIn, reserveIn, reserveOut);
+    }
+
+    function getAmountsIn(address router, uint amountOut, address[] memory path) public view returns (uint[] memory amounts) {
+        return IUniswapV2Router02(router).getAmountsIn(amountOut, path);
+    }
+
+    function getAmountIn(address router, uint amountOut, uint reserveIn, uint reserveOut) public pure returns (uint amountIn) {
+        return IUniswapV2Router02(router).getAmountIn(amountOut, reserveIn, reserveOut);
+    }
+
+    function getPair(address router, address token0, address token1) public view returns (address pair){
+        // 获取工厂合约实例
+        IUniswapV2Factory _uniswapV2Factory = IUniswapV2Factory(IUniswapV2Router02(router).factory());
+        // 调用工厂合约的 `getPair` 函数获取交易对地址
+        return _uniswapV2Factory.getPair(token0, token1);
+    }
+
+    function getReserves(address router, address token0, address token1) public view returns (uint reserveInput, uint reserveOutput) {
+        // 获取 Uniswap V2 工厂实例
+        IUniswapV2Factory _uniswapV2Factory = IUniswapV2Factory(IUniswapV2Router02(router).factory());
+        // 根据 token0 和 token1 获取对应的交易对合约地址
+        address pairAddress = _uniswapV2Factory.getPair(token0, token1);
+        // 获取交易对合约实例
+        IUniswapV2Pair uniswapV2Pair = IUniswapV2Pair(pairAddress);
+        // 获取 token0 和 token1 的储备量
+        (uint reserve0, uint reserve1,) = uniswapV2Pair.getReserves();
+        // 判断 token0 和 token1 的先后顺序，并根据先后顺序给 reserveInput 和 reserveOutput 赋值
+        (reserveInput, reserveOutput) = uniswapV2Pair.token0() == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+    }
+
+    function buy(address router, address token0, address token1, uint amountIn) external virtual onlyWhite gasTokenRefund {
+        address[] memory _path = new address[](2);
+        _path[0] = token0;
+        _path[1] = token1;
+        uint[] memory amounts = getAmountsOut(router, amountIn, _path);
+        IUniswapV2Pair pair = IUniswapV2Pair(getPair(router, token0, token1));
+        //在 Uniswap 中，交易必须在对应的交易对中进行，即必须将代币转移到交易对合约地址中，才能进行买卖交易。
+        TransferHelper.safeTransfer(token0, address(pair), amountIn);
+        (uint256 reserve0, uint256 reserve1) = getReserves(router, token0, token1);
+        address tokenA = token0 < token1 ? token0 : token1;
+        (uint amount0Out, uint amount1Out) = tokenA == token0 ? (uint(0), amounts[1]) : (amounts[1], uint(0));
+        pair.swap(amount0Out, amount1Out, address(this), new bytes(0));
+        tradeCount++;
+        // 记录买入交易信息
+        tradeLogs[tradeCount] = TradeLog({
+            id: tradeCount,
+            pairAddress: address(pair),
+            token0: token0,
+            token1: token1,
+            amountIn: amountIn,
+            amountOut: amounts[1],
+            timestamp: block.timestamp,
+            isBuy: true,
+            price: SafeMath.div(SafeMath.mul(reserve1 , 10 ** 18),reserve0)
+        });
+
+    }
+
+    function sell(address router, address token0, address token1, uint amountIn) external virtual onlyWhite gasTokenRefund {
+        // 确认代币已经被购买
+        require(IERC20(token0).balanceOf(address(this)) > 0, "Sell: Token not buy.");
+        IUniswapV2Pair pair = IUniswapV2Pair(getPair(router, token0, token1));
+        TransferHelper.safeTransfer(token0, address(pair), amountIn);
+        // 获取输入代币与输出代币的储备量
+        (uint reserveInput, uint reserveOutput) = getReserves(router, token0, token1);
+        // 获取实际输入代币数量，注意由于存在手续费，实际数量可能小于请求数量
+        uint amountInput = SafeMath.sub(IERC20(token0).balanceOf(address(pair)),reserveInput);
+        // 根据输入代币数量获取输出代币数量
+        uint amountOutput = getAmountOut(router, amountInput, reserveInput, reserveOutput);
+        address tokenA = token0 < token1 ? token0 : token1;
+        (uint amount0Out, uint amount1Out) = tokenA == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
+        pair.swap(amount0Out, amount1Out, address(this), new bytes(0));
+        tradeCount++;
+        // 记录买入交易信息
+        tradeLogs[tradeCount] = TradeLog({
+            id: tradeCount,
+            pairAddress: address(pair),
+            token0: token0,
+            token1: token1,
+            amountIn: amountIn,
+            amountOut: amountOutput,
+            timestamp: block.timestamp,
+            isBuy: false,
+            price: SafeMath.div(SafeMath.mul(reserveOutput , 10 ** 18),reserveInput)
+        });
+    }
+
+    function getTradeLogCount() public view returns (uint256) {
+        return tradeCount;
+    }
+
+    function getTradeLogById(uint id) public view returns (TradeLog memory) {
+        return tradeLogs[id];
+    }
+
+    function getTradeLogs(uint256 pageIndex, uint256 pageSize) public view returns (TradeLog[] memory) {
+        uint256 startIndex = (pageIndex - 1) * pageSize + 1;
+        uint256 endIndex = pageIndex * pageSize;
+        if (endIndex > tradeCount) {
+            endIndex = tradeCount;
+        }
+        uint256 length = endIndex - startIndex + 1;
+        TradeLog[] memory result = new TradeLog[](length);
+        for (uint256 i = startIndex; i <= endIndex; i++) {
+            result[i - startIndex] = tradeLogs[i];
+        }
+        return result;
+    }
+
+    function getPairPrice(address router, address token0, address token1) external view returns (uint256) {
+        (uint256 reserve0, uint256 reserve1) = getReserves(router, token0, token1);
+
+        return SafeMath.div(SafeMath.mul(reserve1 , 10 ** 18) ,reserve0);
+    }
+
+    function swap(address router,address token0, address token1, uint256 amount) external virtual onlyWhite gasTokenRefund {
+        // 确认代币已经被购买
+        require(IERC20(token0).balanceOf(address(this)) > 0, "Swap: Token not enought.");
+        // 确认有效币对
+        uint8 status = checkIsBuy(token0,token1);
+        require(status > 0, "Swap: Tokens verify failed.");
+
+        // 将 token0 授权给 pancakeswapRouter 进行交易
+        IERC20(token0).approve(router, amount);
+
+        uint startAmount = IERC20(token1).balanceOf(address(this));
+
+        IUniswapV2Pair pair = IUniswapV2Pair(getPair(router, token0, token1));
+        // 获取交易路径，从 token0 到 token1
+        address[] memory path = new address[](2);
+        path[0] = token0;
+        path[1] = token1;
+        IUniswapV2Router02 pancakeswapRouter = IUniswapV2Router02(router);
+        // 计算 amountOutMin 参数，保证至少有 1% 的交易价格保护
+        uint256[] memory amounts = pancakeswapRouter.getAmountsOut(amount, path);
+        uint256 amountOutMin = amounts[1] - (amounts[1] / 100);
+
+        // 执行交易
+        pancakeswapRouter.swapExactTokensForTokens(
+            amount,
+            amountOutMin,
+            path,
+            address(this),
+            block.timestamp + 60 // 交易截止时间，一般设置为当前区块时间加上 60 秒
+        );
+        uint endAmount = IERC20(token1).balanceOf(address(this));
+        uint realAmount = SafeMath.sub(endAmount,startAmount);
+
+
+
+        // 把 token1 发送给调用者
+        // IERC20(token1).transferFrom(address(this), msg.sender, IERC20(token1).balanceOf(address(this)));
+
+        //记录日志
+        tradeCount++;
+        // 记录买入交易信息
+        tradeLogs[tradeCount] = TradeLog({
+            id: tradeCount,
+            pairAddress: address(pair),
+            token0: token0,
+            token1: token1,
+            amountIn: amount,
+            amountOut: realAmount,
+            timestamp: block.timestamp,
+            isBuy: status == 1,
+            price: status == 1 ? SafeMath.div(SafeMath.mul(amounts[1] , 10 ** 18),amount) : SafeMath.div(SafeMath.mul(amount , 10 ** 18),amounts[1])
+        });
+    }
+
+    // 判断买卖 0-无法判断 1-买 2-卖
+    function checkIsBuy(address token0, address token1) internal view returns (uint8) {
+        address[] memory baseToken = new address[](4);
+        baseToken[0] = WBNB;
+        baseToken[1] = BUSD;
+        baseToken[2] = USDT;
+        baseToken[3] = USDC;
+
+        bool isToken0InBase = false;
+        bool isToken1InBase = false;
+
+        for (uint i = 0; i < baseToken.length; i++) {
+            if (token0 == baseToken[i]) {
+                isToken0InBase = true;
+                break;
+            }
+        }
+
+        for (uint i = 0; i < baseToken.length; i++) {
+            if (token1 == baseToken[i]) {
+                isToken1InBase = true;
+                break;
+            }
+        }
+
+        if (token0 == WBNB) {
+            return 1;
+        } else if (token1 == WBNB) {
+            return 2;
+        } else if (isToken0InBase) {
+            return 1;
+        } else if (isToken1InBase) {
+            return 2;
+        } else {
+            return 0;
+        }
+    }
+
+}

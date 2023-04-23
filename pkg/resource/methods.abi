@@ -1,0 +1,871 @@
+[
+  {
+    "signature": "0x7ff36ab5",
+    "name": "swapExactETHForTokens",
+    "stateMutability": "payable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountOutMin",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "path",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "signature": "0x791ac947",
+    "name": "swapExactTokensForETHSupportingFeeOnTransferTokens",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountOutMin",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "path",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x38ed1739",
+    "name": "swapExactTokensForTokens",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountOutMin",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "path",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "signature": "0x5c11d795",
+    "name": "swapExactTokensForTokensSupportingFeeOnTransferTokens",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountOutMin",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "path",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x06fdde03",
+    "name": "name",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "signature": "0x095ea7b3",
+    "name": "approve",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "guy",
+        "type": "address"
+      },
+      {
+        "internalType": "",
+        "name": "wad",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "signature": "0x18160ddd",
+    "name": "totalSupply",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "signature": "0x23b872dd",
+    "name": "transferFrom",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "src",
+        "type": "address"
+      },
+      {
+        "internalType": "",
+        "name": "dst",
+        "type": "address"
+      },
+      {
+        "internalType": "",
+        "name": "wad",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "signature": "0x2e1a7d4d",
+    "name": "withdraw",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "wad",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x313ce567",
+    "name": "decimals",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "uint8"
+      }
+    ]
+  },
+  {
+    "signature": "0x70a08231",
+    "name": "balanceOf",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "signature": "0x95d89b41",
+    "name": "symbol",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "signature": "0xa9059cbb",
+    "name": "transfer",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "dst",
+        "type": "address"
+      },
+      {
+        "internalType": "",
+        "name": "wad",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "bool"
+      }
+    ]
+  },
+  {
+    "signature": "0xd0e30db0",
+    "name": "deposit",
+    "stateMutability": "payable",
+    "type": "function",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "signature": "0xdd62ed3e",
+    "name": "allowance",
+    "stateMutability": "view",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "",
+        "name": "",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "signature": "0xcce7ec13",
+    "name": "buy",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_father",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x6c197ff5",
+    "name": "sell",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "contractAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amountOfCollate",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x18cbafe5",
+    "name": "swapExactTokensForETH",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountOutMin",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[]",
+        "name": "path",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deadline",
+        "type": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      }
+    ]
+  },
+  {
+    "signature": "0x08733214",
+    "name": "setSellTaxes",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newLiquidityTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newMarketingTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newTeamTax",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x0d5e5c87",
+    "name": "setSelTaxes",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newLiquidityTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newMarketingTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newTeamTax",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xa7bc1de0",
+    "name": "setSellMultiplier",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "multiplier",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xec72d65f",
+    "name": "set_sell_multiplier",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "Multiplier",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x5ea4a8dd",
+    "name": "setSellFee",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_liquedityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_reflectionFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_marketFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_devFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeDivider",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x33201250",
+    "name": "_set_taxes",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "Buy_Fee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "Sell_Fee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xa12a7d61",
+    "name": "setTaxes",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newLiquidityTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newMarketingTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newTeamTax",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newExtraFeeOnSell",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xba876bb9",
+    "name": "setSellFees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_liquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_MarketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_opsFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_devFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_BurnFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeDenominator",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x650c4226",
+    "name": "changeFees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newLiqFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newRewardFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newMarketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newExtraSellFee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x124bdbd7",
+    "name": "changeFee",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_buyMarketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_buyLiquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_buyBurnFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sellMarketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sellLiquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sellBurnFee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x67cbd84c",
+    "name": "_set_Fees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "Buy_Fee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "Sell_Fee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x5c85974f",
+    "name": "setTxLimit",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x74010ece",
+    "name": "setMaxTxnAmount",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x5d0044ca",
+    "name": "setMaxWallet",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x728d41c9",
+    "name": "setMaxWalletLimit",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xf1d5f517",
+    "name": "setWalletLimit",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xec28438a",
+    "name": "setMaxTxAmount",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x0b78f9c0",
+    "name": "setFees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "Buy_Fee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "Sell_Fee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0x6fcba377",
+    "name": "setFees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_liquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_developmentFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_marketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_feeDenominator",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "signature": "0xc6616ba1",
+    "name": "updateFees",
+    "stateMutability": "nonpayable",
+    "type": "function",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_buyLiquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_buyMarketingFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sellLiquidityFee",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_sellMarketingFee",
+        "type": "uint256"
+      }
+    ],
+    "outputs": []
+  }
+]
