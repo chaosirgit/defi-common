@@ -1,4 +1,4 @@
-package defi_common
+package structs
 
 import (
 	"encoding/json"
