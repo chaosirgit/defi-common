@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-redis/redis/v8"
-	"log"
 	"math/big"
 	"strconv"
 	"strings"
@@ -219,26 +218,26 @@ func MapToUserBotSetting(setting map[string]string) (*UserBotSetting, error) {
 	return userBotSetting, nil
 }
 
-func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, client *ethclient.Client, rds *redis.Client) error {
+func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient.Client, rds *redis.Client) (*ReadyTrade, error) {
 
 	if s.StopAt <= time.Now().Unix() {
-		return errors.New("用户脚本运行到期")
+		return nil, errors.New("用户脚本运行到期")
 	}
 
 	// 判断巨鲸交易状态
 	r, err := client.TransactionReceipt(context.Background(), t.Hash)
 	if err != nil || r.Status != 1 {
-		return errors.New("监听到的交易为错误交易")
+		return nil, errors.New("监听到的交易为错误交易")
 	}
 	method, args, err := getMethodAndArgsFromInputData(t.Data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// 确定 token0 token1
 	var token0, token1 common.Address
 	baseAddress, err := helpers.GetBaseTokenAddressesByChainId(t.ChainId)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var ETHForTokens = []string{"swapETHForExactTokens", "swapExactETHForTokens", "swapExactETHForTokensSupportingFeeOnTransferTokens"}
 	var TokensForETH = []string{"swapExactTokensForETH", "swapTokensForExactETH", "swapExactTokensForETHSupportingFeeOnTransferTokens"}
@@ -273,9 +272,9 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 		token0 = args[0].(common.Address)
 		token1 = common.HexToAddress(baseAddress["WETH"])
 	} else if ok, _ = helpers.InArray(method.RawName, addLiquidity); ok {
-		return errors.New("添加流动性,暂时跳过")
+		return nil, errors.New("添加流动性,暂时跳过")
 	} else if ok, _ = helpers.InArray(method.RawName, addETHLiquidity); ok {
-		return errors.New("移除流动性,暂时跳过")
+		return nil, errors.New("移除流动性,暂时跳过")
 	}
 
 	//确定买卖以及金额
@@ -318,10 +317,10 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 		}
 	}
 	if !hasBuy && !hasSell {
-		return errors.New("不是需要处理的币对")
+		return nil, errors.New("不是需要处理的币对")
 	}
 	if hasBuy && hasSell {
-		return errors.New("不是需要处理的币对")
+		return nil, errors.New("不是需要处理的币对")
 	}
 	//买卖
 	var amount *big.Int
@@ -332,14 +331,14 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 	//账号
 	privateKey, err := crypto.HexToECDSA(s.PrivateKey)
 	if err != nil {
-		return errors.New(strconv.FormatInt(s.ID, 10) + " 私钥解析失败")
+		return nil, errors.New(strconv.FormatInt(s.ID, 10) + " 私钥解析失败")
 	}
 	account := crypto.PubkeyToAddress(privateKey.PublicKey)
 
 	pancakeSwapRouterV2Address := common.HexToAddress(baseAddress["DEFI"])
 	pancake, err := pancakeSwapRouter.NewPancakeSwapRouter(pancakeSwapRouterV2Address, client)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	//
 	if hasBuy {
@@ -348,10 +347,10 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 		//TODO 是否 40 卖过的
 		isNot, err := rds.Exists(context.Background(), fmt.Sprintf("notBuy-%d-%s", s.ID, token1.String())).Result()
 		if err != nil {
-			return errors.New(fmt.Sprintf("读取 Reids 失败..."))
+			return nil, errors.New(fmt.Sprintf("读取 Reids 失败..."))
 		}
 		if isNot > 0 {
-			return errors.New("该代币超过止盈线,目前处于观察期..")
+			return nil, errors.New("该代币超过止盈线,目前处于观察期..")
 		}
 
 		//百分比买
@@ -360,13 +359,13 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 		before, _ := t0.BalanceOf(beforeCall, t.From)
 		after, _ := t0.BalanceOf(nil, t.From)
 		useAmount, per := helpers.PercentageDifference(before, after)
-		log.Printf("买入前 (%s) 余额 %v, 买入后 (%s) 余额 %v , 使用 %v, 系数: %v\n", t0symbol, before, t0symbol, after, useAmount, per)
+		//log.Printf("买入前 (%s) 余额 %v, 买入后 (%s) 余额 %v , 使用 %v, 系数: %v\n", t0symbol, before, t0symbol, after, useAmount, per)
 		// 如果设置从 0 开始跟的币种
 		if s.IsZero == int8(1) {
 			// 是不是以前买过的
 			isBuyer, err := rds.Exists(context.Background(), fmt.Sprintf("buyTokens-%d-%s", s.ID, strings.ToLower(token1.String()))).Result()
 			if err != nil {
-				return err
+				return nil, err
 			}
 			// 自己以前没买过才判断大哥是否买过,已买过直接跟
 			if isBuyer == 0 {
@@ -374,7 +373,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 				bt1call.BlockNumber = new(big.Int).Sub(t.BlockNumber, new(big.Int).SetInt64(1))
 				beforeT1, _ := t1.BalanceOf(bt1call, t.From)
 				if beforeT1.Cmp(big.NewInt(0)) > 0 {
-					return errors.New("设置从最新代币开始跟单,已不是...跳过")
+					return nil, errors.New("设置从最新代币开始跟单,已不是...跳过")
 				}
 			}
 		}
@@ -391,7 +390,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 
 		//如果余额小于最小余额，跳过
 		if myT0balance.Cmp(amount) < 0 {
-			return errors.New(fmt.Sprintf("(%s) 余额不足 %v , 跳过...", t0symbol, amount))
+			return nil, errors.New(fmt.Sprintf("(%s) 余额不足 %v , 跳过...", t0symbol, amount))
 		}
 	} else if hasSell {
 		//百分比卖
@@ -400,7 +399,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 		before, _ := t0.BalanceOf(beforeCall, t.From)
 		after, _ := t0.BalanceOf(nil, t.From)
 		_, per := helpers.PercentageDifference(before, after)
-		log.Printf("卖出前 (%s) 余额 %v, 卖出后 (%s) 余额 %v , 系数: %v\n", t0symbol, before, t0symbol, after, per)
+		//log.Printf("卖出前 (%s) 余额 %v, 卖出后 (%s) 余额 %v , 系数: %v\n", t0symbol, before, t0symbol, after, per)
 
 		myT0balance, _ := t0.BalanceOf(nil, account)
 
@@ -411,7 +410,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 			surplus := new(big.Int).Sub(myT0balance, amount)
 			surplusAmountsOut, err := pancake.GetAmountsOut(nil, surplus, []common.Address{token0, token1})
 			if err != nil {
-				return errors.New("获取剩余代币价值错误:" + err.Error())
+				return nil, errors.New("获取剩余代币价值错误:" + err.Error())
 			}
 			if surplusAmountsOut[1].Cmp(baseArr[kSell].Line) != 1 {
 				amount = myT0balance
@@ -422,7 +421,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 	}
 	//如果余额小于等于0 跳过
 	if amount.Cmp(new(big.Int).SetInt64(0)) <= 0 {
-		return errors.New("使用零交易,跳过")
+		return nil, errors.New("使用零交易,跳过")
 	}
 	var ready ReadyTrade
 	ready.ChainId = s.ChainID.String()
@@ -432,17 +431,15 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, queueKey string, 
 	ready.DefiAddress = pancakeSwapRouterV2Address.String()
 	ready.Token0 = token0.String()
 	ready.Token1 = token1.String()
-	readyBytes, err := json.Marshal(ready)
-	if err != nil {
-		log.Printf("Error marshaling ready_trade to JSON: %v\n", err)
-	}
-	err = rds.RPush(context.Background(), queueKey, string(readyBytes)).Err()
-	if err != nil {
-		log.Printf("Error pushing ready_trade to Redis queue: %v\n", err)
-	}
-	log.Printf("Push Success!\n")
-
-	return nil
+	//readyBytes, err := json.Marshal(ready)
+	//if err != nil {
+	//	return nil, errors.New("Error marshaling ready_trade to JSON")
+	//}
+	//err = rds.RPush(context.Background(), queueKey, string(readyBytes)).Err()
+	//if err != nil {
+	//	return nil, errors.New("Error pushing ready_trade to Redis queue")
+	//}
+	return &ready, nil
 }
 
 func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{}, error) {
