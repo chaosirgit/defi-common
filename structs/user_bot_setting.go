@@ -428,19 +428,11 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 
 	ready.ChainId = s.ChainID.String()
 	ready.Amount = amount.String()
-	ready.PrivateKey = s.PrivateKey
 	ready.Account = account.String()
 	ready.DefiAddress = pancakeSwapRouterV2Address.String()
 	ready.Token0 = token0.String()
 	ready.Token1 = token1.String()
-	//readyBytes, err := json.Marshal(ready)
-	//if err != nil {
-	//	return nil, errors.New("Error marshaling ready_trade to JSON")
-	//}
-	//err = rds.RPush(context.Background(), queueKey, string(readyBytes)).Err()
-	//if err != nil {
-	//	return nil, errors.New("Error pushing ready_trade to Redis queue")
-	//}
+	ready.SettingId = strconv.FormatInt(s.ID, 10)
 	return &ready, nil
 }
 
