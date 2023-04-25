@@ -8,4 +8,5 @@ type ReadyTrade struct {
 	PrivateKey  string `json:"private_key"`
 	Amount      string `json:"amount"`
 	Account     string `json:"account"`
+	IsBuy       bool   `json:"is_buy"`
 }

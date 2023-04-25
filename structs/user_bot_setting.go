@@ -219,7 +219,8 @@ func MapToUserBotSetting(setting map[string]string) (*UserBotSetting, error) {
 }
 
 func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient.Client, rds *redis.Client) (*ReadyTrade, error) {
-
+	var ready ReadyTrade
+	ready.IsBuy = false
 	if s.StopAt <= time.Now().Unix() {
 		return nil, errors.New("用户脚本运行到期")
 	}
@@ -345,6 +346,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 		//TODO 判断用户是否开启防貔貅
 
 		//TODO 是否 40 卖过的
+		ready.IsBuy = true
 		isNot, err := rds.Exists(context.Background(), fmt.Sprintf("notBuy-%d-%s", s.ID, token1.String())).Result()
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("读取 Reids 失败..."))
@@ -423,7 +425,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 	if amount.Cmp(new(big.Int).SetInt64(0)) <= 0 {
 		return nil, errors.New("使用零交易,跳过")
 	}
-	var ready ReadyTrade
+
 	ready.ChainId = s.ChainID.String()
 	ready.Amount = amount.String()
 	ready.PrivateKey = s.PrivateKey
