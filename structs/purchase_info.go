@@ -50,7 +50,7 @@ func (purchase *PurchaseInfo) SavePurchaseInfoToRedis(rdb *redis.Client) error {
 
 	// 将 UserBotSettingID 添加到 Redis 集合中
 	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(purchase.TokenAddress), strings.ToLower(purchase.BaseAddress))
-	err = rdb.SAdd(ctx, tokenKey, purchase.UserBotSettingID).Err()
+	err = rdb.SAdd(ctx, tokenKey, jsonData).Err()
 	if err != nil {
 		return err
 	}
@@ -113,18 +113,29 @@ func GetAllDistinctTokenPairs(rdb *redis.Client) ([]TokenPair, error) {
 	return distinctTokenPairs, nil
 }
 
-// 获取某个代币对下的所有买入用户
-func GetUserBotSettingIDsForTokenAndBase(rdb *redis.Client, tokenAddress, baseAddress string) ([]string, error) {
+// 获取某个代币对下的所有买入信息
+func GetUserPurchasesByTokenPair(rdb *redis.Client, tokenAddress, baseAddress string) ([]PurchaseInfo, error) {
 	ctx := context.Background()
 
-	// 根据 tokenAddress 和 baseAddress 构建 Redis 集合 key
 	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(tokenAddress), strings.ToLower(baseAddress))
 
-	// 从 Redis 集合中获取所有 UserBotSettingID
-	userBotSettingIDs, err := rdb.SMembers(ctx, tokenKey).Result()
+	// 从 Redis 集合中获取 PurchaseInfo JSON 数据
+	jsonDataList, err := rdb.SMembers(ctx, tokenKey).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	return userBotSettingIDs, nil
+	purchases := make([]PurchaseInfo, 0, len(jsonDataList))
+
+	// 解析 JSON 数据并将其添加到 purchases 列表中
+	for _, jsonData := range jsonDataList {
+		var purchase PurchaseInfo
+		err = json.Unmarshal([]byte(jsonData), &purchase)
+		if err != nil {
+			return nil, err
+		}
+		purchases = append(purchases, purchase)
+	}
+
+	return purchases, nil
 }

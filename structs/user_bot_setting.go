@@ -451,3 +451,16 @@ func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{
 	}
 	return method, args, nil
 }
+
+func GetUserBotSettingById(id string, rds *redis.Client) (*UserBotSetting, error) {
+	settingKey := "FollowSetting:" + id
+	setting, err := rds.HGetAll(context.Background(), settingKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	us, err := MapToUserBotSetting(setting)
+	if err != nil {
+		return nil, err
+	}
+	return us, nil
+}
