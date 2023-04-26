@@ -49,7 +49,7 @@ func (purchase *PurchaseInfo) SavePurchaseInfoToRedis(rdb *redis.Client) error {
 	}
 
 	// 将 UserBotSettingID 添加到 Redis 集合中
-	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s", strings.ToLower(purchase.TokenAddress))
+	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(purchase.TokenAddress), strings.ToLower(purchase.BaseAddress))
 	err = rdb.SAdd(ctx, tokenKey, purchase.UserBotSettingID).Err()
 	if err != nil {
 		return err
@@ -72,43 +72,53 @@ func (purchase *PurchaseInfo) GetAllTokens(rdb *redis.Client) ([]string, error) 
 	return tokenAddresses, nil
 }
 
-// 获取平台所有已买入的代币
-func GetAllUniqueTokensBought(rdb *redis.Client) ([]string, error) {
+type TokenPair struct {
+	TokenAddress string
+	BaseAddress  string
+}
+
+// 获取平台所有已买入的代币对
+func GetAllDistinctTokenPairs(rdb *redis.Client) ([]TokenPair, error) {
 	ctx := context.Background()
 
-	// 使用一个 map 来存储去重后的代币地址
-	uniqueTokens := make(map[string]bool)
-
-	// 获取所有以 "FirstPurchaseToken:" 开头的 key
+	// 获取所有以 FirstPurchaseToken: 开头的键
 	keys, err := rdb.Keys(ctx, "FirstPurchaseToken:*").Result()
 	if err != nil {
 		return nil, err
 	}
 
-	// 遍历所有的 FirstPurchaseToken:<TokenAddress> key
+	// 用于存储唯一 tokenAddress/baseAddress 对的集合
+	tokenSet := make(map[string]struct{})
+
+	// 遍历所有键，提取 tokenAddress/baseAddress 并将其添加到集合中
 	for _, key := range keys {
-		// 从 key 中提取 TokenAddress
-		tokenAddress := strings.TrimPrefix(key, "FirstPurchaseToken:")
-
-		// 将 TokenAddress 添加到 uniqueTokens map 中
-		uniqueTokens[tokenAddress] = true
+		parts := strings.Split(key, ":")
+		if len(parts) == 2 {
+			tokenSet[parts[1]] = struct{}{}
+		}
 	}
 
-	// 将 uniqueTokens map 转换为字符串切片
-	result := make([]string, 0, len(uniqueTokens))
-	for tokenAddress := range uniqueTokens {
-		result = append(result, tokenAddress)
+	// 将唯一 tokenAddress/baseAddress 对从集合转换为 TokenPair 切片
+	distinctTokenPairs := make([]TokenPair, 0, len(tokenSet))
+	for token := range tokenSet {
+		pairParts := strings.Split(token, "/")
+		if len(pairParts) == 2 {
+			distinctTokenPairs = append(distinctTokenPairs, TokenPair{
+				TokenAddress: pairParts[0],
+				BaseAddress:  pairParts[1],
+			})
+		}
 	}
 
-	return result, nil
+	return distinctTokenPairs, nil
 }
 
-// 获取某个 代币下的所有买入用户
-func GetUserBotSettingIDsForToken(rdb *redis.Client, tokenAddress string) ([]string, error) {
+// 获取某个代币对下的所有买入用户
+func GetUserBotSettingIDsForTokenAndBase(rdb *redis.Client, tokenAddress, baseAddress string) ([]string, error) {
 	ctx := context.Background()
 
-	// 根据 tokenAddress 构建 Redis 集合 key
-	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s", tokenAddress)
+	// 根据 tokenAddress 和 baseAddress 构建 Redis 集合 key
+	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(tokenAddress), strings.ToLower(baseAddress))
 
 	// 从 Redis 集合中获取所有 UserBotSettingID
 	userBotSettingIDs, err := rdb.SMembers(ctx, tokenKey).Result()
