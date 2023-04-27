@@ -218,9 +218,11 @@ func MapToUserBotSetting(setting map[string]string) (*UserBotSetting, error) {
 	return userBotSetting, nil
 }
 
+// 分析交易
 func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient.Client, rds *redis.Client) (*ReadyTrade, error) {
 	var ready ReadyTrade
 	ready.IsBuy = false
+	ready.Type = 1
 	if s.StopAt <= time.Now().Unix() {
 		return nil, errors.New("用户脚本运行到期")
 	}
@@ -345,14 +347,14 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 	if hasBuy {
 		//TODO 判断用户是否开启防貔貅
 
-		//TODO 是否 40 卖过的
+		//是否处于观察期
 		ready.IsBuy = true
-		isNot, err := rds.Exists(context.Background(), fmt.Sprintf("notBuy-%d-%s", s.ID, token1.String())).Result()
+		isNot, err := rds.Exists(context.Background(), fmt.Sprintf("OB:%d:%s", s.ID, token1.String())).Result()
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("读取 Reids 失败..."))
 		}
 		if isNot > 0 {
-			return nil, errors.New("该代币超过止盈线,目前处于观察期..")
+			return nil, errors.New("该代币超过止盈线,目前处于观察期...")
 		}
 
 		//百分比买
@@ -364,20 +366,23 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 		//log.Printf("买入前 (%s) 余额 %v, 买入后 (%s) 余额 %v , 使用 %v, 系数: %v\n", t0symbol, before, t0symbol, after, useAmount, per)
 		// 如果设置从 0 开始跟的币种
 		if s.IsZero == int8(1) {
-			// 是不是以前买过的
-			isBuyer, err := rds.Exists(context.Background(), fmt.Sprintf("buyTokens-%d-%s", s.ID, strings.ToLower(token1.String()))).Result()
+			// 自己以前有没有买过
+			var purchase PurchaseInfo
+			purchase.UserBotSettingID = fmt.Sprintf("%d", s.ID)
+			purchase.TokenAddress = strings.ToLower(token1.String())
+			isBuy, err := purchase.HasPurchasedToken(rds)
 			if err != nil {
-				return nil, err
+				return nil, errors.New("redis 获取买入记录失败")
 			}
-			// 自己以前没买过才判断大哥是否买过,已买过直接跟
-			if isBuyer == 0 {
-				bt1call := new(bind.CallOpts)
-				bt1call.BlockNumber = new(big.Int).Sub(t.BlockNumber, new(big.Int).SetInt64(1))
-				beforeT1, _ := t1.BalanceOf(bt1call, t.From)
-				if beforeT1.Cmp(big.NewInt(0)) > 0 {
+			// 如果没买过
+			if !isBuy {
+				// 判断 策略交易者 是不是第一次购买
+				beforeAmount, _ := t1.BalanceOf(beforeCall, t.From)
+				if beforeAmount.Cmp(new(big.Int).SetInt64(0)) > 0 {
 					return nil, errors.New("设置从最新代币开始跟单,已不是...跳过")
 				}
 			}
+			// 买过则继续执行
 		}
 		myT0balance, _ := t0.BalanceOf(nil, account)
 
@@ -434,6 +439,57 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 	ready.Token1 = token1.String()
 	ready.SettingId = strconv.FormatInt(s.ID, 10)
 	return &ready, nil
+}
+
+// 止盈交易  price 现在价格 purchase 购买信息 token 要卖出的代币
+func (s *UserBotSetting) StopWinTransaction(price *big.Float, purchase PurchaseInfo, token *token.Token) (*ReadyTrade, error) {
+	if s.StopWin <= 0 {
+		return nil, errors.New("用户未设置止盈线")
+	}
+	var ready ReadyTrade
+	ready.IsBuy = false
+	ready.Type = 2
+	beforePrice, ok := new(big.Float).SetString(purchase.PurchasePrice)
+	if !ok {
+		return nil, errors.New("string 转换 bigFloat 价格 失败")
+	}
+	// 指定涨幅百分比
+	percentage := new(big.Float).SetInt64(s.StopWin)
+	// 将涨幅百分比转换为小数
+	divisor := big.NewFloat(100)
+	percentageQuotient := new(big.Float).Quo(percentage, divisor)
+	multiplier := new(big.Float).Add(big.NewFloat(1), percentageQuotient)
+	// 计算 结果
+	targetPrice := new(big.Float).Mul(beforePrice, multiplier)
+	//高于 stopWin% 价格.全部卖出,并设置有过期时限的key.禁止买入
+	if price.Cmp(targetPrice) >= 0 {
+		//账号
+		privateKey, err := crypto.HexToECDSA(s.PrivateKey)
+		if err != nil {
+			return nil, errors.New("Private key parse fail")
+		}
+		account := crypto.PubkeyToAddress(privateKey.PublicKey)
+		amount, err := token.BalanceOf(nil, account)
+		if err != nil {
+			return nil, err
+		}
+		if amount.Cmp(big.NewInt(0)) < 1 {
+			return nil, errors.New("没有该代币,跳过...")
+		}
+		baseAddress, err := helpers.GetBaseTokenAddressesByChainId(s.ChainID)
+		if err != nil {
+			return nil, err
+		}
+		ready.ChainId = s.ChainID.String()
+		ready.Amount = amount.String()
+		ready.Account = account.String()
+		ready.DefiAddress = baseAddress["DEFI"]
+		ready.Token0 = purchase.TokenAddress
+		ready.Token1 = purchase.BaseAddress
+		ready.SettingId = strconv.FormatInt(s.ID, 10)
+		return &ready, nil
+	}
+	return nil, errors.New("价格未过止盈线")
 }
 
 func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{}, error) {

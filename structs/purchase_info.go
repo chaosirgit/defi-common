@@ -58,6 +58,28 @@ func (purchase *PurchaseInfo) SavePurchaseInfoToRedis(rdb *redis.Client) error {
 	return nil
 }
 
+// 删除买入信息
+func (purchase *PurchaseInfo) RemovePurchaseInfoFromRedis(rdb *redis.Client) error {
+	ctx := context.Background()
+
+	userKey := purchase.getKey()
+
+	// 从 Redis 散列中删除用户购买信息
+	err := rdb.HDel(ctx, userKey, purchase.TokenAddress).Err()
+	if err != nil {
+		return err
+	}
+
+	// 从 Redis 集合中删除 UserBotSettingID
+	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(purchase.TokenAddress), strings.ToLower(purchase.BaseAddress))
+	err = rdb.SRem(ctx, tokenKey, purchase.UserBotSettingID).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // 获取 该用户下的所有购买的币
 func (purchase *PurchaseInfo) GetAllTokens(rdb *redis.Client) ([]string, error) {
 	ctx := context.Background()
@@ -138,4 +160,18 @@ func GetUserPurchasesByTokenPair(rdb *redis.Client, tokenAddress, baseAddress st
 	}
 
 	return purchases, nil
+}
+
+func (purchase *PurchaseInfo) HasPurchasedToken(rdb *redis.Client) (bool, error) {
+	ctx := context.Background()
+
+	userKey := purchase.getKey()
+
+	// 检查用户是否已经购买过这个代币
+	exists, err := rdb.HExists(ctx, userKey, purchase.TokenAddress).Result()
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }
