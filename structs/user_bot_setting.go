@@ -527,6 +527,8 @@ func (s *UserBotSetting) SellAllTransaction(rdb *redis.Client, client *ethclient
 		ready.Token0 = pair.TokenAddress
 		ready.Token1 = pair.BaseAddress
 		ready.SettingId = strconv.FormatInt(s.ID, 10)
+		ready.Type = 3
+		ready.IsBuy = false
 		reades = append(reades, &ready)
 	}
 	return reades, nil
