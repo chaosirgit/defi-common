@@ -154,8 +154,10 @@ func GetKeysWithPrefix(rdb *redis.Client, prefix string) ([]string, error) {
 
 func GetBaseTokenAddressesByChainId(chainId *big.Int) (map[string]string, error) {
 	result := map[string]string{}
-	switch chainId {
-	case big.NewInt(56):
+	bnbChain := big.NewInt(56)
+	ethChain := big.NewInt(1)
+	switch {
+	case chainId.Cmp(bnbChain) == 0:
 		result = map[string]string{
 			"WETH": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
 			"BUSD": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
@@ -163,7 +165,7 @@ func GetBaseTokenAddressesByChainId(chainId *big.Int) (map[string]string, error)
 			"USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
 			"DEFI": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
 		}
-	case big.NewInt(1):
+	case chainId.Cmp(ethChain) == 0:
 		result = map[string]string{
 			"WETH": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
 			"BUSD": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
