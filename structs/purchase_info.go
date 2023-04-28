@@ -80,18 +80,34 @@ func (purchase *PurchaseInfo) RemovePurchaseInfoFromRedis(rdb *redis.Client) err
 	return nil
 }
 
-// 获取 该用户下的所有购买的币
-func (purchase *PurchaseInfo) GetAllTokens(rdb *redis.Client) ([]string, error) {
+// 获取用户的所有币对儿
+func GetAllPurchasedTokenPairsForUser(rdb *redis.Client, userBotSettingID string) ([]TokenPair, error) {
 	ctx := context.Background()
 
-	userKey := purchase.getKey()
+	userKey := fmt.Sprintf("SettingFirstPurchase:%s", userBotSettingID)
 
-	tokenAddresses, err := rdb.HKeys(ctx, userKey).Result()
+	// 从 Redis 散列中获取 PurchaseInfo JSON 数据
+	jsonDataList, err := rdb.HVals(ctx, userKey).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	return tokenAddresses, nil
+	tokenPairs := make([]TokenPair, 0, len(jsonDataList))
+
+	// 解析 JSON 数据并将其添加到 tokenPairs 列表中
+	for _, jsonData := range jsonDataList {
+		var purchase PurchaseInfo
+		err = json.Unmarshal([]byte(jsonData), &purchase)
+		if err != nil {
+			return nil, err
+		}
+		tokenPairs = append(tokenPairs, TokenPair{
+			TokenAddress: purchase.TokenAddress,
+			BaseAddress:  purchase.BaseAddress,
+		})
+	}
+
+	return tokenPairs, nil
 }
 
 type TokenPair struct {

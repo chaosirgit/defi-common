@@ -492,6 +492,46 @@ func (s *UserBotSetting) StopWinTransaction(price *big.Float, purchase PurchaseI
 	return nil, errors.New("价格未过止盈线")
 }
 
+// 全部卖出- 停止跟单
+func (s *UserBotSetting) SellAllTransaction(rdb *redis.Client, client *ethclient.Client) ([]*ReadyTrade, error) {
+	//获取用户所有买入的币
+	pairs, err := GetAllPurchasedTokenPairsForUser(rdb, fmt.Sprintf("%d", s.ID))
+	if err != nil {
+		return nil, err
+	}
+	var reades []*ReadyTrade
+	baseAddress, err := helpers.GetBaseTokenAddressesByChainId(s.ChainID)
+	if err != nil {
+		return nil, err
+	}
+	for _, pair := range pairs {
+		var ready ReadyTrade
+		t0, _ := token.NewToken(common.HexToAddress(pair.TokenAddress), client)
+		//账号
+		privateKey, err := crypto.HexToECDSA(s.PrivateKey)
+		if err != nil {
+			return nil, errors.New("Private key parse fail")
+		}
+		account := crypto.PubkeyToAddress(privateKey.PublicKey)
+		amount, err := t0.BalanceOf(nil, account)
+		if err != nil {
+			return nil, err
+		}
+		if amount.Cmp(big.NewInt(0)) < 1 {
+			continue
+		}
+		ready.ChainId = s.ChainID.String()
+		ready.Amount = amount.String()
+		ready.Account = account.String()
+		ready.DefiAddress = baseAddress["DEFI"]
+		ready.Token0 = pair.TokenAddress
+		ready.Token1 = pair.BaseAddress
+		ready.SettingId = strconv.FormatInt(s.ID, 10)
+		reades = append(reades, &ready)
+	}
+	return reades, nil
+}
+
 func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{}, error) {
 	hexData := common.FromHex(stringData)
 	methodId := hexData[:4]
