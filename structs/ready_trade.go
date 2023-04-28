@@ -27,7 +27,7 @@ type ReadyTrade struct {
 	Account     string `json:"account"`
 	IsBuy       bool   `json:"is_buy"`
 	SettingId   string `json:"setting_id"`
-	Type        int8   `json:"type"` // 1-正常分析(百分比买卖) 2-止盈分析(涨幅超过用户设置的全部卖出)
+	Type        int8   `json:"type"` // 1-正常分析(百分比买卖) 2-止盈分析(涨幅超过用户设置的全部卖出) 3-停止运行全部卖出
 }
 
 func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Transaction, error) {
@@ -161,6 +161,17 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				}
 				//设置几分钟之内不买
 				err = rdb.Set(context.Background(), fmt.Sprintf("OB:%d:%s", r.SettingId, r.Token0), "1", time.Minute*time.Duration(us.StopWinMin)).Err()
+				if err != nil {
+					return b, err
+				}
+			} else if r.Type == 3 {
+				// 删除买入 key
+				var purchase PurchaseInfo
+				purchase.UserBotSettingID = r.SettingId
+				// 这里时卖出，记得 token0 和 token1 的顺序
+				purchase.TokenAddress = r.Token0
+				purchase.BaseAddress = r.Token1
+				err = purchase.RemovePurchaseInfoFromRedis(rdb)
 				if err != nil {
 					return b, err
 				}
