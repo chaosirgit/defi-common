@@ -431,7 +431,7 @@ func (s *UserBotSetting) AnalyzeTransaction(t TransactionData, client *ethclient
 		return nil, errors.New("使用零交易,跳过")
 	}
 
-	ready.ChainId = s.ChainID.String()
+	ready.ChainId = s.ChainID.Int64()
 	ready.Amount = amount.String()
 	ready.Account = account.String()
 	ready.DefiAddress = pancakeSwapRouterV2Address.String()
@@ -480,7 +480,7 @@ func (s *UserBotSetting) StopWinTransaction(price *big.Float, purchase PurchaseI
 		if err != nil {
 			return nil, err
 		}
-		ready.ChainId = s.ChainID.String()
+		ready.ChainId = s.ChainID.Int64()
 		ready.Amount = amount.String()
 		ready.Account = account.String()
 		ready.DefiAddress = baseAddress["DEFI"]
@@ -520,7 +520,7 @@ func (s *UserBotSetting) SellAllTransaction(rdb *redis.Client, client *ethclient
 		if amount.Cmp(big.NewInt(0)) < 1 {
 			continue
 		}
-		ready.ChainId = s.ChainID.String()
+		ready.ChainId = s.ChainID.Int64()
 		ready.Amount = amount.String()
 		ready.Account = account.String()
 		ready.DefiAddress = baseAddress["DEFI"]
