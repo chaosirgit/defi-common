@@ -22,7 +22,7 @@ type ReadyTrade struct {
 	Token0      string `json:"token0"`
 	Token1      string `json:"token1"`
 	DefiAddress string `json:"defi_address"`
-	ChainId     int64  `json:"chain_id"`
+	ChainId     string `json:"chain_id"`
 	Amount      string `json:"amount"`
 	Account     string `json:"account"`
 	IsBuy       bool   `json:"is_buy"`
@@ -67,7 +67,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 	if !ok {
 		return nil, errors.New("Approve Error amount converting string to *big.Int")
 	}
-	chainId := new(big.Int).SetInt64(r.ChainId)
+	chainId, ok := new(big.Int).SetString(r.ChainId, 10)
 	if !ok {
 		return nil, errors.New("Approve Error chainId converting string to *big.Int")
 	}
