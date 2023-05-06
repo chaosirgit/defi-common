@@ -45,7 +45,7 @@ type UserBotSetting struct {
 }
 
 func (s *UserBotSetting) UnmarshalJSON(data []byte) error {
-	aux := &struct {
+	aux := struct {
 		ID              int64  `json:"id"`
 		WhaleAddress    string `json:"whale_address"`
 		WhaleName       string `json:"whale_name"`
