@@ -271,7 +271,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 		if s.IsZero == 1 {
 			// 自己以前有没有买过
 			var purchase PurchaseInfo
-			purchase.UserBotSettingID = fmt.Sprintf("%d", s.ID)
+			purchase.UserTaskId = fmt.Sprintf("%d", s.ID)
 			purchase.TokenAddress = strings.ToLower(token1.String())
 			isBuy, err := purchase.HasPurchasedToken(rds)
 			if err != nil {

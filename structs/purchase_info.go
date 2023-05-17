@@ -9,17 +9,17 @@ import (
 )
 
 type PurchaseInfo struct {
-	UserBotSettingID string `json:"user_bot_setting_id"`
-	TokenAddress     string `json:"token_address"`
-	BaseAddress      string `json:"base_address"`
-	DefiAddress      string `json:"defi_address"`
-	ChainId          string `json:"chain_id"`
-	PurchasePrice    string `json:"purchase_price"`
-	Time             int64  `json:"time"`
+	UserTaskId    string `json:"user_task_id"`
+	TokenAddress  string `json:"token_address"`
+	BaseAddress   string `json:"base_address"`
+	DefiAddress   string `json:"defi_address"`
+	ChainId       string `json:"chain_id"`
+	PurchasePrice string `json:"purchase_price"`
+	Time          int64  `json:"time"`
 }
 
 func (purchase *PurchaseInfo) getKey() string {
-	return fmt.Sprintf("SettingFirstPurchase:%s", purchase.UserBotSettingID)
+	return fmt.Sprintf("SettingFirstPurchase:%s", purchase.UserTaskId)
 }
 
 // 第一次买入，存入 redis
@@ -74,7 +74,7 @@ func (purchase *PurchaseInfo) RemovePurchaseInfoFromRedis(rdb *redis.Client) err
 
 	// 从 Redis 集合中删除 UserBotSettingID
 	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(purchase.TokenAddress), strings.ToLower(purchase.BaseAddress))
-	err = rdb.SRem(ctx, tokenKey, purchase.UserBotSettingID).Err()
+	err = rdb.SRem(ctx, tokenKey, purchase.UserTaskId).Err()
 	if err != nil {
 		return err
 	}
