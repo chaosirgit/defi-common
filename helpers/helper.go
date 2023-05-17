@@ -3,13 +3,20 @@ package helpers
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
+	"encoding/json"
+	"fmt"
+	"github.com/chaosirgit/defi-common/pkg/contract/pancakeSwapRouter"
+	"github.com/chaosirgit/defi-common/pkg/contract/token"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/go-redis/redis/v8"
+	"io"
+	"log"
 	"math/big"
+	"net/http"
 	"reflect"
+	"strings"
 )
 
 // InArray will search element inside array with any type.
@@ -152,29 +159,104 @@ func GetKeysWithPrefix(rdb *redis.Client, prefix string) ([]string, error) {
 	return keys, nil
 }
 
-func GetBaseTokenAddressesByChainId(chainId *big.Int) (map[string]string, error) {
-	result := map[string]string{}
-	bnbChain := big.NewInt(56)
-	ethChain := big.NewInt(1)
-	switch {
-	case chainId.Cmp(bnbChain) == 0:
-		result = map[string]string{
-			"WETH": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
-			"BUSD": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-			"USDT": "0x55d398326f99059fF775485246999027B3197955",
-			"USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-			"DEFI": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
-		}
-	case chainId.Cmp(ethChain) == 0:
-		result = map[string]string{
-			"WETH": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
-			"BUSD": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-			"USDT": "0x55d398326f99059fF775485246999027B3197955",
-			"USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-			"DEFI": "",
-		}
-	default:
-		return nil, errors.New("暂不支持的链")
+func GetBaseTokenAddressesByChainId(chainId *big.Int, rdb *redis.Client) (result []common.Address, mainToken *common.Address, usdToken *common.Address, err error) {
+	baseTokens, err := rdb.SMembers(context.Background(), "BaseTokenList:"+chainId.String()).Result()
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	return result, nil
+
+	for _, ts := range baseTokens {
+		v, err := rdb.HGetAll(context.Background(), fmt.Sprintf("BaseToken:%s:%s", chainId.String(), ts)).Result()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		isMain := v["is_main"] == "1"
+		if isMain {
+			main := common.HexToAddress(ts)
+			mainToken = &main
+		}
+		isUsd := v["is_usd"] == "1"
+		if isUsd {
+			u := common.HexToAddress(ts)
+			usdToken = &u
+		}
+		result = append(result, common.HexToAddress(ts))
+	}
+	return
+}
+
+func IsHoneypotToken(token common.Address, chainId *big.Int, rdb *redis.Client) bool {
+	key := fmt.Sprintf("HoneyPot:%s:%s", chainId.String(), strings.ToLower(token.String()))
+	e, err := rdb.Exists(context.Background(), key).Result()
+	if err != nil {
+		log.Println(err)
+		return true
+	}
+	if e > 0 {
+		a, err := rdb.Get(context.Background(), key).Result()
+		if err != nil {
+			log.Println(err)
+			return true
+		}
+		if a == "safely" {
+			return false
+		}
+	} else {
+		resp, err := http.Get(fmt.Sprintf("https://api.gopluslabs.io/api/v1/token_security/%s?contract_addresses=%s", chainId.String(), token.String()))
+		if err != nil {
+			log.Println(err)
+			return true
+		}
+		// 关闭响应体
+		defer resp.Body.Close()
+
+		// 读取响应体
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println(err)
+			return true
+		}
+		//str := string(body)
+		a := make(map[string]interface{})
+		err = json.Unmarshal(body, &a)
+		if err != nil {
+			log.Println(err)
+			return true
+		}
+		res := a["result"].(map[string]interface{})[strings.ToLower(token.String())]
+		if res != nil {
+			r := "dangerous"
+			m := res.(map[string]interface{})
+			//开源
+			if m["is_open_source"].(string) == "1" {
+				//无代理
+				if m["is_proxy"] != nil && m["is_proxy"].(string) == "0" {
+					if m["is_honeypot"] != nil && m["is_honeypot"].(string) == "0" {
+						r = "safely"
+					}
+				}
+			}
+			rdb.Set(context.Background(), key, r, redis.KeepTTL)
+			if r == "safely" {
+				return false
+			} else {
+				return true
+			}
+		}
+	}
+	return true
+}
+
+func GetPrice(defiAddress common.Address, tokenAddress common.Address, baseAddress common.Address, ec *ethclient.Client) (*big.Float, *big.Int, error) {
+	t1, _ := token.NewToken(tokenAddress, ec)
+
+	decimal, _ := t1.Decimals(nil)
+	pancake, err := pancakeSwapRouter.NewPancakeSwapRouter(defiAddress, ec)
+	// 10 的 decimal 次方 的 token1 = 多少 token0 也就是 1个 购买币 等于多少个 基本币
+	prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(decimal)), nil), []common.Address{tokenAddress, baseAddress})
+	if err != nil {
+		return nil, nil, err
+	}
+	price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), big.NewFloat(1e18))
+	return price, prices[1], nil
 }

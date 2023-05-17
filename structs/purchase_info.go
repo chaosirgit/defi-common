@@ -12,6 +12,8 @@ type PurchaseInfo struct {
 	UserBotSettingID string `json:"user_bot_setting_id"`
 	TokenAddress     string `json:"token_address"`
 	BaseAddress      string `json:"base_address"`
+	DefiAddress      string `json:"defi_address"`
+	ChainId          string `json:"chain_id"`
 	PurchasePrice    string `json:"purchase_price"`
 	Time             int64  `json:"time"`
 }
