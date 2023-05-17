@@ -12,7 +12,7 @@ type TradeSend struct {
 	Token1      common.Address
 	DefiAddress common.Address
 	Price       *big.Float
-	Setting     *UserBotSetting
+	Task        *UserTask
 	IsBuy       bool
 	Error       error
 }

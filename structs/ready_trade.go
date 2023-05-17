@@ -39,7 +39,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		operation = "出售"
 	}
 
-	us, err := GetUserBotSettingById(r.SettingId, rdb)
+	us, err := GetUserTaskById(r.SettingId, rdb)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				}
 				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), big.NewFloat(1e18))
 				var purchase PurchaseInfo
-				purchase.UserBotSettingID = r.SettingId
+				purchase.UserTaskId = r.SettingId
 				purchase.Time = time.Now().Unix()
 				purchase.TokenAddress = r.Token1
 				purchase.BaseAddress = r.Token0
@@ -151,7 +151,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 			if r.Type == 2 {
 				// 删除买入 key
 				var purchase PurchaseInfo
-				purchase.UserBotSettingID = r.SettingId
+				purchase.UserTaskId = r.SettingId
 				// 这里时卖出，记得 token0 和 token1 的顺序
 				purchase.TokenAddress = r.Token0
 				purchase.BaseAddress = r.Token1
@@ -167,7 +167,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 			} else if r.Type == 3 {
 				// 删除买入 key
 				var purchase PurchaseInfo
-				purchase.UserBotSettingID = r.SettingId
+				purchase.UserTaskId = r.SettingId
 				// 这里时卖出，记得 token0 和 token1 的顺序
 				purchase.TokenAddress = r.Token0
 				purchase.BaseAddress = r.Token1
