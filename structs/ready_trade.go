@@ -116,6 +116,10 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 	// 百分之10的滑点
 	amountOut := new(big.Int).Sub(amountsOut[1], new(big.Int).Div(amountsOut[1], big.NewInt(100)))
 	authPancakeData, _ := helpers.GetAuthData(privateKey, chainId, ec)
+	// 开启防夹单
+	if us.PreventSandwichAttacks == 1 {
+		authPancakeData.GasPrice = new(big.Int).Add(authPancakeData.GasPrice, big.NewInt(1))
+	}
 	b, err := pancake.SwapExactTokensForTokens(authPancakeData, amount, amountOut, path, account, deadline)
 	if err != nil {
 		return nil, err
@@ -129,18 +133,21 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		if r.IsBuy {
 			if b != nil {
 				decimal, _ := t1.Decimals(nil)
+				bdecimal, _ := t0.Decimals(nil)
 				// 10 的 decimal 次方 的 token1 = 多少 token0 也就是 1个 购买币 等于多少个 基本币
 				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(decimal)), nil), []common.Address{token1, token0})
 				if err != nil {
 					return nil, err
 				}
-				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), big.NewFloat(1e18))
+				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(bdecimal)), nil)))
 				var purchase PurchaseInfo
 				purchase.UserTaskId = r.SettingId
 				purchase.Time = time.Now().Unix()
 				purchase.TokenAddress = r.Token1
 				purchase.BaseAddress = r.Token0
 				purchase.PurchasePrice = price.String()
+				purchase.DefiAddress = defiRouterAddress.String()
+				purchase.ChainId = chainId.String()
 				err = purchase.SavePurchaseInfoToRedis(rdb)
 				if err != nil {
 					return b, err
@@ -164,6 +171,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				if err != nil {
 					return b, err
 				}
+				// 停止全部卖出
 			} else if r.Type == 3 {
 				// 删除买入 key
 				var purchase PurchaseInfo
