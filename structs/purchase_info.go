@@ -15,6 +15,8 @@ type PurchaseInfo struct {
 	DefiAddress   string `json:"defi_address"`
 	ChainId       string `json:"chain_id"`
 	PurchasePrice string `json:"purchase_price"`
+	Symbol        string `json:"symbol"`
+	Decimals      int64  `json:"decimals"`
 	Time          int64  `json:"time"`
 }
 

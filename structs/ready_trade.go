@@ -148,6 +148,8 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				purchase.PurchasePrice = price.String()
 				purchase.DefiAddress = defiRouterAddress.String()
 				purchase.ChainId = chainId.String()
+				purchase.Symbol = t1symbol
+				purchase.Decimals = int64(decimal)
 				err = purchase.SavePurchaseInfoToRedis(rdb)
 				if err != nil {
 					return b, err
