@@ -39,7 +39,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		operation = "出售"
 	}
 
-	us, err := GetUserTaskById(r.SettingId, rdb)
+	us, err := GetUserTaskById(r.ChainId, r.SettingId, rdb)
 	if err != nil {
 		return nil, err
 	}

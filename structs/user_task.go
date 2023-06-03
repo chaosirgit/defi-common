@@ -36,8 +36,8 @@ func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{
 	return method, args, nil
 }
 
-func GetUserTaskById(id string, rds *redis.Client) (*UserTask, error) {
-	settingKey := "FollowSetting:" + id
+func GetUserTaskById(chainId string, id string, rds *redis.Client) (*UserTask, error) {
+	settingKey := fmt.Sprintf("FollowSetting:%s:%s", chainId, id)
 	setting, err := rds.HGetAll(context.Background(), settingKey).Result()
 	if err != nil {
 		return nil, err
@@ -73,6 +73,7 @@ type UserTask struct {
 	IsZero                 int64          `json:"is_zero"`
 	PreventSandwichAttacks int64          `json:"prevent_sandwich_attacks"`
 	PrivateKey             string         `json:"private_key"`
+	IsVip                  bool           `json:"is_vip"`
 }
 
 func (ut *UserTask) UnmarshalJSON(data []byte) error {
@@ -99,6 +100,7 @@ func (ut *UserTask) UnmarshalJSON(data []byte) error {
 		IsZero                 int64  `json:"is_zero"`
 		PreventSandwichAttacks int64  `json:"prevent_sandwich_attacks"`
 		PrivateKey             string `json:"private_key"`
+		IsVip                  bool   `json:"is_vip"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -141,6 +143,7 @@ func (ut *UserTask) UnmarshalJSON(data []byte) error {
 	ut.IsZero = aux.IsZero
 	ut.PreventSandwichAttacks = aux.PreventSandwichAttacks
 	ut.PrivateKey = aux.PrivateKey
+	ut.IsVip = aux.IsVip
 	return nil
 }
 
@@ -293,7 +296,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 		settingAmount := new(big.Int)
 		settingMinAmount := new(big.Int)
 		settingMaxAmount := new(big.Int)
-		// 如果是主网币
+		// 如果是主网币 换算为主网币的价格
 		if token0 == *mainAddress {
 			priceF, _, err := helpers.GetPrice(pancakeSwapRouterV2Address, *mainAddress, *usdAddress, client)
 			if err != nil {
@@ -305,10 +308,16 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 			settingAmount.Quo(new(big.Int).Mul(s.Amount, big.NewInt(1e18)), priceInt)
 			settingMinAmount.Quo(new(big.Int).Mul(s.MinAmount, big.NewInt(1e18)), priceInt)
 			settingMaxAmount.Quo(new(big.Int).Mul(s.MaxAmount, big.NewInt(1e18)), priceInt)
+			// 否则，VIP 使用美元金额
 		} else {
-			settingAmount.Mul(s.Amount, big.NewInt(1e18))
-			settingMinAmount.Mul(s.MinAmount, big.NewInt(1e18))
-			settingMaxAmount.Mul(s.MaxAmount, big.NewInt(1e18))
+			if s.IsVip {
+				t0decimal, _ := t0.Decimals(nil)
+				t0Exp := new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0decimal)), nil)
+
+				settingAmount.Mul(s.Amount, t0Exp)
+				settingMinAmount.Mul(s.MinAmount, t0Exp)
+				settingMaxAmount.Mul(s.MaxAmount, t0Exp)
+			}
 		}
 		// 如果是固定金额买入
 		if s.BuyType == 0 {

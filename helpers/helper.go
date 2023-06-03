@@ -247,16 +247,19 @@ func IsHoneypotToken(token common.Address, chainId *big.Int, rdb *redis.Client) 
 	return true
 }
 
+// price 除以基本币的小数位后的价格 price1 没除以小数位价格
 func GetPrice(defiAddress common.Address, tokenAddress common.Address, baseAddress common.Address, ec *ethclient.Client) (*big.Float, *big.Int, error) {
 	t1, _ := token.NewToken(tokenAddress, ec)
-
+	tb, _ := token.NewToken(baseAddress, ec)
 	decimal, _ := t1.Decimals(nil)
+	baseDecimal, _ := tb.Decimals(nil)
 	pancake, err := pancakeSwapRouter.NewPancakeSwapRouter(defiAddress, ec)
 	// 10 的 decimal 次方 的 token1 = 多少 token0 也就是 1个 购买币 等于多少个 基本币
 	prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(decimal)), nil), []common.Address{tokenAddress, baseAddress})
 	if err != nil {
 		return nil, nil, err
 	}
-	price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), big.NewFloat(1e18))
+	baseD := new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(baseDecimal)), nil)
+	price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(baseD))
 	return price, prices[1], nil
 }
