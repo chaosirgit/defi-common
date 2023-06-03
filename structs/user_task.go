@@ -73,7 +73,7 @@ type UserTask struct {
 	IsZero                 int64          `json:"is_zero"`
 	PreventSandwichAttacks int64          `json:"prevent_sandwich_attacks"`
 	PrivateKey             string         `json:"private_key"`
-	IsVip                  bool           `json:"is_vip"`
+	IsVip                  int64          `json:"is_vip"`
 }
 
 func (ut *UserTask) UnmarshalJSON(data []byte) error {
@@ -100,7 +100,7 @@ func (ut *UserTask) UnmarshalJSON(data []byte) error {
 		IsZero                 int64  `json:"is_zero"`
 		PreventSandwichAttacks int64  `json:"prevent_sandwich_attacks"`
 		PrivateKey             string `json:"private_key"`
-		IsVip                  bool   `json:"is_vip"`
+		IsVip                  int64  `json:"is_vip"`
 	}{}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
@@ -310,7 +310,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 			settingMaxAmount.Quo(new(big.Int).Mul(s.MaxAmount, big.NewInt(1e18)), priceInt)
 			// 否则，VIP 使用美元金额
 		} else {
-			if s.IsVip {
+			if s.IsVip == 1 {
 				t0decimal, _ := t0.Decimals(nil)
 				t0Exp := new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0decimal)), nil)
 
