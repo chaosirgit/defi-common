@@ -2,6 +2,7 @@ package structs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/chaosirgit/defi-common/helpers"
@@ -130,17 +131,17 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		return nil, err
 	}
 	if bReceipt.Status == 1 {
+		var purchase PurchaseInfo
 		if r.IsBuy {
 			if b != nil {
-				decimal, _ := t1.Decimals(nil)
-				bdecimal, _ := t0.Decimals(nil)
+				t1Decimal, _ := t1.Decimals(nil) //token
+				t0Decimal, _ := t0.Decimals(nil) //base
 				// 10 的 decimal 次方 的 token1 = 多少 token0 也就是 1个 购买币 等于多少个 基本币
-				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(decimal)), nil), []common.Address{token1, token0})
+				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t1Decimal)), nil), []common.Address{token1, token0})
 				if err != nil {
 					return nil, err
 				}
-				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(bdecimal)), nil)))
-				var purchase PurchaseInfo
+				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0Decimal)), nil)))
 				purchase.UserTaskId = r.SettingId
 				purchase.Time = time.Now().Unix()
 				purchase.TokenAddress = r.Token1
@@ -149,7 +150,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				purchase.DefiAddress = defiRouterAddress.String()
 				purchase.ChainId = chainId.String()
 				purchase.Symbol = t1symbol
-				purchase.Decimals = int64(decimal)
+				purchase.Decimals = int64(t1Decimal)
 				err = purchase.SavePurchaseInfoToRedis(rdb)
 				if err != nil {
 					return b, err
@@ -159,11 +160,20 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 			// 到达止盈线的出售
 			if r.Type == 2 {
 				// 删除买入 key
-				var purchase PurchaseInfo
 				purchase.UserTaskId = r.SettingId
 				// 这里时卖出，记得 token0 和 token1 的顺序
 				purchase.TokenAddress = r.Token0
 				purchase.BaseAddress = r.Token1
+				t1Decimal, _ := t1.Decimals(nil) //base
+				t0Decimal, _ := t0.Decimals(nil) //token
+				// 10 的 decimal 次方 的 token0 = 多少 token1 也就是 1个 购买币 等于多少个 基本币
+				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0Decimal)), nil), []common.Address{token1, token0})
+				if err != nil {
+					return nil, err
+				}
+				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t1Decimal)), nil)))
+				purchase.PurchasePrice = price.String()
+
 				err = purchase.RemovePurchaseInfoFromRedis(rdb)
 				if err != nil {
 					return b, err
@@ -176,11 +186,19 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				// 停止全部卖出
 			} else if r.Type == 3 {
 				// 删除买入 key
-				var purchase PurchaseInfo
 				purchase.UserTaskId = r.SettingId
 				// 这里时卖出，记得 token0 和 token1 的顺序
 				purchase.TokenAddress = r.Token0
 				purchase.BaseAddress = r.Token1
+				t1Decimal, _ := t1.Decimals(nil) //base
+				t0Decimal, _ := t0.Decimals(nil) //token
+				// 10 的 decimal 次方 的 token0 = 多少 token1 也就是 1个 购买币 等于多少个 基本币
+				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0Decimal)), nil), []common.Address{token1, token0})
+				if err != nil {
+					return nil, err
+				}
+				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t1Decimal)), nil)))
+				purchase.PurchasePrice = price.String()
 				err = purchase.RemovePurchaseInfoFromRedis(rdb)
 				if err != nil {
 					return b, err
@@ -188,6 +206,28 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 			}
 		}
 		log.Printf("发送(%s)成功 (%s:%s) To (%s:%s),Hash: %v\n", operation, t0symbol, amount.String(), t1symbol, amountOut.String(), b.Hash().String())
+		//todo 入库
+		type SuccessTransaction struct {
+			ChainId      string `json:"chain_id"`
+			UserTaskId   string `json:"user_task_id"`
+			BaseAddress  string `json:"base_address"`
+			TokenAddress string `json:"token_address"`
+			DefiAddress  string `json:"defi_address"`
+			Price        string `json:"price"`
+			Origin       int8   `json:"origin"`
+			TimeStamp    int64  `json:"time_stamp"`
+		}
+		st := new(SuccessTransaction)
+		st.ChainId = chainId.String()
+		st.UserTaskId = r.SettingId
+		st.BaseAddress = purchase.BaseAddress
+		st.TokenAddress = purchase.TokenAddress
+		st.DefiAddress = defiRouterAddress.String()
+		st.Price = purchase.PurchasePrice
+		st.Origin = r.Type
+		st.TimeStamp = time.Now().Unix()
+		stData, _ := json.Marshal(st)
+		err = rdb.HSet(context.Background(), "Transaction", b.Hash().String(), string(stData)).Err()
 		return b, nil
 	}
 	return nil, errors.New("交易未成功...")
