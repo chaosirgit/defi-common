@@ -217,6 +217,8 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 			Origin       int8   `json:"origin"`
 			TimeStamp    int64  `json:"time_stamp"`
 			IsBuy        int8   `json:"is_buy"`
+			AmountIn     string `json:"amount_in"`
+			AmountOut    string `json:"amount_out"`
 		}
 		st := new(SuccessTransaction)
 		st.ChainId = chainId.String()
@@ -227,6 +229,8 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		st.Price = purchase.PurchasePrice
 		st.Origin = r.Type
 		st.TimeStamp = time.Now().Unix()
+		st.AmountIn = amount.String()
+		st.AmountOut = amountOut.String()
 		isbuy := int8(0)
 		if r.IsBuy {
 			isbuy = int8(1)
