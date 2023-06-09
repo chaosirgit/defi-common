@@ -157,8 +157,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				}
 			}
 		} else {
-			// 到达止盈线的出售
-			if r.Type == 2 {
+			if b != nil {
 				// 删除买入 key
 				purchase.UserTaskId = r.SettingId
 				// 这里时卖出，记得 token0 和 token1 的顺序
@@ -178,30 +177,13 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 				if err != nil {
 					return b, err
 				}
-				//设置几分钟之内不买
-				err = rdb.Set(context.Background(), fmt.Sprintf("OB:%d:%s", r.SettingId, r.Token0), "1", time.Minute*time.Duration(us.StopWinMin)).Err()
-				if err != nil {
-					return b, err
-				}
-				// 停止全部卖出
-			} else if r.Type == 3 {
-				// 删除买入 key
-				purchase.UserTaskId = r.SettingId
-				// 这里时卖出，记得 token0 和 token1 的顺序
-				purchase.TokenAddress = r.Token0
-				purchase.BaseAddress = r.Token1
-				t1Decimal, _ := t1.Decimals(nil) //base
-				t0Decimal, _ := t0.Decimals(nil) //token
-				// 10 的 decimal 次方 的 token0 = 多少 token1 也就是 1个 购买币 等于多少个 基本币
-				prices, err := pancake.GetAmountsOut(nil, new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t0Decimal)), nil), []common.Address{token1, token0})
-				if err != nil {
-					return nil, err
-				}
-				price := new(big.Float).Quo(new(big.Float).SetInt(prices[1]), new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), new(big.Int).SetUint64(uint64(t1Decimal)), nil)))
-				purchase.PurchasePrice = price.String()
-				err = purchase.RemovePurchaseInfoFromRedis(rdb)
-				if err != nil {
-					return b, err
+				// 到达止盈线的出售
+				if r.Type == 2 {
+					//设置几分钟之内不买
+					err = rdb.Set(context.Background(), fmt.Sprintf("OB:%d:%s", r.SettingId, r.Token0), "1", time.Minute*time.Duration(us.StopWinMin)).Err()
+					if err != nil {
+						return b, err
+					}
 				}
 			}
 		}
