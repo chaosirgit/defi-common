@@ -121,6 +121,21 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 	if us.PreventSandwichAttacks == 1 {
 		authPancakeData.GasPrice = new(big.Int).Add(authPancakeData.GasPrice, big.NewInt(1))
 	}
+	var purchase PurchaseInfo
+	if amountOut.Cmp(big.NewInt(0)) < 1 {
+		if !r.IsBuy {
+			// 删除买入 key
+			purchase.UserTaskId = r.SettingId
+			// 这里时卖出，记得 token0 和 token1 的顺序
+			purchase.TokenAddress = r.Token0
+			purchase.BaseAddress = r.Token1
+			err = purchase.RemovePurchaseInfoFromRedis(rdb)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, errors.New("流动性不足")
+	}
 	b, err := pancake.SwapExactTokensForTokens(authPancakeData, amount, amountOut, path, account, deadline)
 	if err != nil {
 		return nil, err
@@ -131,7 +146,7 @@ func (r *ReadyTrade) Send(rdb *redis.Client, ec *ethclient.Client) (*types.Trans
 		return nil, err
 	}
 	if bReceipt.Status == 1 {
-		var purchase PurchaseInfo
+
 		if r.IsBuy {
 			if b != nil {
 				t1Decimal, _ := t1.Decimals(nil) //token
