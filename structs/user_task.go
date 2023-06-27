@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/chaosirgit/defi-common/helpers"
 	"github.com/chaosirgit/defi-common/pkg/contract/pancakeSwapRouter"
+	"github.com/chaosirgit/defi-common/pkg/contract/pancakeSwapRouterV3"
 	"github.com/chaosirgit/defi-common/pkg/contract/token"
+	"github.com/chaosirgit/defi-common/pkg/contract/uniSwapRouterV3"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +21,88 @@ import (
 	"strings"
 	"time"
 )
+
+type ParseRouterMethodAndParams struct {
+	Method *abi.Method
+	Params []interface{}
+}
+
+func GetMethodsAndParamsFromInputData(stringData string, routerVersion int64, swap string) (*ParseRouterMethodAndParams, error) {
+	return getMethodAndParamsFromInputData(stringData, routerVersion, swap)
+}
+
+func getMethodAndParamsFromInputData(stringData string, routerVersion int64, swap string) (*ParseRouterMethodAndParams, error) {
+	hexData := common.FromHex(stringData)
+	methodId := hexData[:4]
+	input := hexData[4:]
+	var swapAbi *abi.ABI
+
+	switch {
+	case routerVersion == 2:
+		swapAbi, _ = pancakeSwapRouter.PancakeSwapRouterMetaData.GetAbi()
+	case routerVersion == 3 && swap == "pancakeswap":
+		swapAbi, _ = pancakeSwapRouterV3.PancakeSwapRouterV3MetaData.GetAbi()
+	case routerVersion == 3:
+		swapAbi, _ = uniSwapRouterV3.UniSwapRouterV3MetaData.GetAbi()
+	default:
+		return nil, errors.New("Unsupported router version or swap")
+	}
+
+	method, err := swapAbi.MethodById(methodId)
+	if err != nil {
+		return nil, err
+	}
+
+	args, err := method.Inputs.UnpackValues(input)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ParseRouterMethodAndParams{
+		Method: method,
+		Params: args,
+	}
+
+	if method.RawName == "multicall" {
+		result, err = handleMulticall(args, swapAbi)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+func handleMulticall(args []interface{}, swapAbi *abi.ABI) (*ParseRouterMethodAndParams, error) {
+	arr := []string{
+		"exactInputSingle",
+		"exactInput",
+		"exactOutputSingle",
+		"exactOutput",
+		"exactInputStableSwap",
+		"exactOutputStableSwap",
+		"swapExactTokensForTokens",
+		"swapTokensForExactTokens",
+	}
+	for _, a := range args {
+		if bytes, ok := a.([][]byte); ok {
+			for _, s := range bytes {
+				m, _ := swapAbi.MethodById(s[:4])
+				p, err := m.Inputs.UnpackValues(s[4:])
+				if err != nil {
+					return nil, err
+				}
+				if has, _ := helpers.InArray(m.RawName, arr); has {
+					return &ParseRouterMethodAndParams{
+						Method: m,
+						Params: p,
+					}, nil
+				}
+			}
+		}
+	}
+	return nil, errors.New("No matching method found in multicall")
+}
 
 func getMethodAndArgsFromInputData(stringData string) (*abi.Method, []interface{}, error) {
 	hexData := common.FromHex(stringData)
@@ -148,7 +232,7 @@ func (ut *UserTask) UnmarshalJSON(data []byte) error {
 }
 
 // 分析交易
-func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Client, rds *redis.Client) (*ReadyTrade, error) {
+func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Client, rds *redis.Client, RouterV2Address common.Address) (*ReadyTrade, error) {
 	var ready ReadyTrade
 	ready.IsBuy = false
 	ready.Type = 1
@@ -161,10 +245,22 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 	if err != nil || r.Status != 1 {
 		return nil, errors.New("监听到的交易为错误交易")
 	}
-	method, args, err := getMethodAndArgsFromInputData(t.Data)
+	var swapVersion int64 = 2
+	swap := "uniswap"
+	if ok, _ := helpers.InArray(t.To, []common.Address{common.HexToAddress("0x13f4ea83d0bd40e75c8222255bc855a974568dd4"), common.HexToAddress("0xE592427A0AEce92De3Edee1F18E0157C05861564")}); ok {
+		swapVersion = 3
+	}
+	if t.To == common.HexToAddress("0x13f4ea83d0bd40e75c8222255bc855a974568dd4") {
+		swap = "pancakeswap"
+	}
+	params, err := getMethodAndParamsFromInputData(t.Data, swapVersion, swap)
 	if err != nil {
 		return nil, err
 	}
+	//method, args, err := getMethodAndArgsFromInputData(t.Data)
+	//if err != nil {
+	//	return nil, err
+	//}
 	// 确定 token0 token1
 	var token0, token1 common.Address
 	baseAddress, mainAddress, usdAddress, err := helpers.GetBaseTokenAddressesByChainId(t.ChainId, rds)
@@ -178,35 +274,153 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 	var RemoveETHLiquidity = []string{"removeLiquidityETH", "removeLiquidityETHWithPermit", "removeLiquidityETHSupportingFeeOnTransferTokens", "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens"}
 	var addLiquidity = []string{"addLiquidity"}
 	var addETHLiquidity = []string{"addLiquidityETH"}
-	if ok, _ := helpers.InArray(method.RawName, ETHForTokens); ok {
-		pathRouter := args[1].([]common.Address)
+	var exactInputSingle = []string{"exactInputSingle"}
+	var exactInput = []string{"exactInput"}
+	var exactOutputSingle = []string{"exactOutputSingle"}
+	var exactOutput = []string{"exactOutput"}
+	if ok, _ := helpers.InArray(params.Method.RawName, ETHForTokens); ok {
+		pathRouter := params.Params[1].([]common.Address)
 		token0 = *mainAddress
 		token1 = pathRouter[len(pathRouter)-1]
-	} else if ok, _ = helpers.InArray(method.RawName, TokensForETH); ok {
-		pathRouter := args[2].([]common.Address)
+	} else if ok, _ = helpers.InArray(params.Method.RawName, TokensForETH); ok {
+		pathRouter := params.Params[2].([]common.Address)
 		token0 = pathRouter[0]
 		token1 = *mainAddress
 
-	} else if ok, _ = helpers.InArray(method.RawName, TokensForTokens); ok {
-		pathRouter := args[2].([]common.Address)
+	} else if ok, _ = helpers.InArray(params.Method.RawName, TokensForTokens); ok {
+		pathRouter := params.Params[2].([]common.Address)
 		token0 = pathRouter[len(pathRouter)-2]
 		token1 = pathRouter[len(pathRouter)-1]
 
-	} else if ok, _ = helpers.InArray(method.RawName, RemoveLiquidity); ok {
-		token0 = args[0].(common.Address)
-		token1 = args[1].(common.Address)
-		if is, _ := helpers.InArray(args[0].(common.Address), baseAddress); is {
-			token0 = args[1].(common.Address)
-			token1 = args[0].(common.Address)
+	} else if ok, _ = helpers.InArray(params.Method.RawName, RemoveLiquidity); ok {
+		token0 = params.Params[0].(common.Address)
+		token1 = params.Params[1].(common.Address)
+		if is, _ := helpers.InArray(params.Params[0].(common.Address), baseAddress); is {
+			token0 = params.Params[1].(common.Address)
+			token1 = params.Params[0].(common.Address)
 		}
 
-	} else if ok, _ = helpers.InArray(method.RawName, RemoveETHLiquidity); ok {
-		token0 = args[0].(common.Address)
+	} else if ok, _ = helpers.InArray(params.Method.RawName, RemoveETHLiquidity); ok {
+		token0 = params.Params[0].(common.Address)
 		token1 = *mainAddress
-	} else if ok, _ = helpers.InArray(method.RawName, addLiquidity); ok {
+	} else if ok, _ = helpers.InArray(params.Method.RawName, addLiquidity); ok {
 		return nil, errors.New("添加流动性,暂时跳过")
-	} else if ok, _ = helpers.InArray(method.RawName, addETHLiquidity); ok {
+	} else if ok, _ = helpers.InArray(params.Method.RawName, addETHLiquidity); ok {
 		return nil, errors.New("移除流动性,暂时跳过")
+	} else if ok, _ = helpers.InArray(params.Method.RawName, exactInputSingle); ok {
+		if swap == "pancakeswap" {
+			var temp pancakeSwapRouterV3.IV3SwapRouterExactInputSingleParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactInputSingleParams json error (pancake)")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactInputSingleParams error (pancake)")
+			}
+			token0 = temp.TokenIn
+			token1 = temp.TokenOut
+		} else {
+			var temp uniSwapRouterV3.ISwapRouterExactInputSingleParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactInputSingleParams json error")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactInputSingleParams error")
+			}
+			token0 = temp.TokenIn
+			token1 = temp.TokenOut
+		}
+	} else if ok, _ = helpers.InArray(params.Method.RawName, exactOutputSingle); ok {
+		if swap == "pancakeswap" {
+			var temp pancakeSwapRouterV3.IV3SwapRouterExactOutputSingleParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error (pancake)")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error (pancake)")
+			}
+			token0 = temp.TokenIn
+			token1 = temp.TokenOut
+		} else {
+			var temp uniSwapRouterV3.ISwapRouterExactOutputSingleParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error")
+			}
+			token0 = temp.TokenIn
+			token1 = temp.TokenOut
+		}
+	} else if ok, _ = helpers.InArray(params.Method.RawName, exactInput); ok {
+		if swap == "pancakeswap" {
+			var temp pancakeSwapRouterV3.IV3SwapRouterExactInputParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error (pancake)")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error (pancake)")
+			}
+			path, _, err := helpers.ParsePath(temp.Path)
+			if err != nil {
+				return nil, errors.New("Parse path error(pancake)")
+			}
+			token0 = path[len(path)-2]
+			token1 = path[len(path)-1]
+		} else {
+			var temp uniSwapRouterV3.ISwapRouterExactInputParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error")
+			}
+			path, _, err := helpers.ParsePath(temp.Path)
+			token0 = path[len(path)-2]
+			token1 = path[len(path)-1]
+		}
+	} else if ok, _ = helpers.InArray(params.Method.RawName, exactOutput); ok {
+		if swap == "pancakeswap" {
+			var temp pancakeSwapRouterV3.IV3SwapRouterExactOutputParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error (pancake)")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error (pancake)")
+			}
+			path, _, err := helpers.ParsePath(temp.Path)
+			if err != nil {
+				return nil, errors.New("Parse path error(pancake)")
+			}
+			token0 = path[len(path)-2]
+			token1 = path[len(path)-1]
+		} else {
+			var temp uniSwapRouterV3.ISwapRouterExactOutputParams
+			jd, err := json.Marshal(params.Params[0])
+			if err != nil {
+				return nil, errors.New("Marshal ExactOutputSingleParams json error")
+			}
+			err = json.Unmarshal(jd, &temp)
+			if err != nil {
+				return nil, errors.New("Unmarshal ExactOutputSingleParams error")
+			}
+			path, _, err := helpers.ParsePath(temp.Path)
+			token0 = path[len(path)-2]
+			token1 = path[len(path)-1]
+		}
 	}
 
 	//确定买卖以及金额
@@ -238,11 +452,6 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 	}
 	account := crypto.PubkeyToAddress(privateKey.PublicKey)
 
-	pancakeSwapRouterV2Address := t.To
-	//pancake, err := pancakeSwapRouter.NewPancakeSwapRouter(pancakeSwapRouterV2Address, client)
-	if err != nil {
-		return nil, err
-	}
 	//
 	if hasBuy {
 		//判断用户是否开启防貔貅
@@ -298,7 +507,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 		settingMaxAmount := new(big.Int)
 		// 如果是主网币 换算为主网币的价格
 		if token0 == *mainAddress {
-			priceF, _, err := helpers.GetPrice(pancakeSwapRouterV2Address, *mainAddress, *usdAddress, client)
+			priceF, _, err := helpers.GetPrice(RouterV2Address, *mainAddress, *usdAddress, client)
 			if err != nil {
 				return nil, err
 			}
@@ -380,7 +589,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 	ready.ChainId = s.ChainId.String()
 	ready.Amount = amount.String()
 	ready.Account = account.String()
-	ready.DefiAddress = pancakeSwapRouterV2Address.String()
+	ready.DefiAddress = t.To.String()
 	ready.Token0 = token0.String()
 	ready.Token1 = token1.String()
 	ready.SettingId = strconv.FormatInt(s.ID, 10)

@@ -19,6 +19,26 @@ import (
 	"strings"
 )
 
+func ParsePath(path []byte) ([]common.Address, []int, error) {
+
+	var addresses []common.Address
+	var fees []int
+
+	for i := 0; i < len(path); i += 23 {
+		// 从 path 中解析出代币地址
+		addresses = append(addresses, common.BytesToAddress(path[i:i+20]))
+
+		// 如果这不是最后一个地址，则还有一个费用字段
+		if i+23 < len(path) {
+			// 从 path 中解析出费用
+			fee := new(big.Int).SetBytes(path[i+20 : i+23]).Int64()
+			fees = append(fees, int(fee))
+		}
+	}
+
+	return addresses, fees, nil
+}
+
 // InArray will search element inside array with any type.
 // Will return boolean and index for matched element.
 // True and index more than 0 if element is exist.
