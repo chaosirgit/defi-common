@@ -589,7 +589,7 @@ func (s *UserTask) AnalyzeTransaction(t TransactionData, client *ethclient.Clien
 	ready.ChainId = s.ChainId.String()
 	ready.Amount = amount.String()
 	ready.Account = account.String()
-	ready.DefiAddress = t.To.String()
+	ready.DefiAddress = RouterV2Address.String()
 	ready.Token0 = token0.String()
 	ready.Token1 = token1.String()
 	ready.SettingId = strconv.FormatInt(s.ID, 10)
