@@ -54,7 +54,7 @@ func (purchase *PurchaseInfo) SavePurchaseInfoToRedis(rdb *redis.Client) error {
 
 	// 将 UserBotSettingID 添加到 Redis 集合中
 	tokenKey := fmt.Sprintf("FirstPurchaseToken:%s/%s", strings.ToLower(purchase.TokenAddress), strings.ToLower(purchase.BaseAddress))
-	err = rdb.SAdd(ctx, tokenKey, jsonData).Err()
+	err = rdb.SAdd(ctx, tokenKey, purchase.UserTaskId).Err()
 	if err != nil {
 		return err
 	}

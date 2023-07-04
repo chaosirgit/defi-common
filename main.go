@@ -2,10 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/chaosirgit/defi-common/helpers"
-	"github.com/chaosirgit/defi-common/pkg/contract/uniSwapRouterV3"
-	"github.com/chaosirgit/defi-common/structs"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -13,10 +10,11 @@ import (
 )
 
 func main() {
-	hash := "0x24300892dc970262fa4452ecce1eef87b06bdbd89a7abbd8897c78b8372fdae6"
+	hash := "0xf73e4e060cc8c4de810b5ffda1b0a38cd5f3cb90e27891875ed3e2dbf7605131"
 	//hash := "0x6990d920b6189ac5a5b7d0f9d3ddc775df1179b70e6b7a501b76683157b6a54f"
 	log.Println(hash)
-	c, err := rpc.DialOptions(context.Background(), "https://rpc.payload.de")
+	//c, err := rpc.DialOptions(context.Background(), "https://rpc.payload.de")
+	c, err := rpc.DialOptions(context.Background(), "https://data-seed-prebsc-1-s1.binance.org:8545")
 	//c, err := rpc.DialOptions(context.Background(), "https://bsc-dataseed.binance.org/")
 	if err != nil {
 		log.Fatalf("Client Node Error: %v\n", err)
@@ -34,21 +32,19 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Println(chainId)
-	transaction, pending, err := ec.TransactionByHash(context.Background(), common.HexToHash(hash))
-	log.Println(pending)
+	receipt, err := ec.TransactionReceipt(context.Background(), common.HexToHash(hash))
+	log.Println(receipt)
 	log.Println(err)
-	log.Println(transaction)
-	data := transaction.Data()
-	d, err := structs.GetMethodsAndParamsFromInputData(common.Bytes2Hex(data), 3, "uniswap")
-	println(d.Method.RawName)
-	log.Println(d.Params[0])
-	p, err := json.Marshal(d.Params[0])
-	log.Println(string(p))
-
-	var temp uniSwapRouterV3.ISwapRouterExactInputParams
-	json.Unmarshal(p, &temp)
-	path, _, _ := helpers.ParsePath(temp.Path)
-	log.Println(path)
-	log.Println(temp)
+	for _, l := range receipt.Logs {
+		fmt.Println("Log Block Number: ", l.BlockNumber)
+		fmt.Println("Log Index: ", l.Index)
+		fmt.Println("Log Removed: ", l.Removed)
+		//fmt.Println("Log Type: ", )
+		// Data is a byte array containing the non-indexed log data
+		fmt.Println("Log Data: ", l.Data)
+		// Topics are a list of 32-byte hash which are the indexed event parameters
+		fmt.Println("Log Topics: ", l.Topics)
+		// Etc...
+	}
 
 }
