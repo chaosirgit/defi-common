@@ -23,8 +23,8 @@ import (
 )
 
 type ParseRouterMethodAndParams struct {
-	Method *abi.Method
-	Params []interface{}
+	Method *abi.Method `json:"method"`
+	Params []interface{} `json:"params"`
 }
 
 func GetMethodsAndParamsFromInputData(stringData string, routerVersion int64, swap string) (*ParseRouterMethodAndParams, error) {
