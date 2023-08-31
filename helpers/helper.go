@@ -149,12 +149,15 @@ func GetAuthData(privateKey *ecdsa.PrivateKey, chainId *big.Int, client *ethclie
 	if err != nil {
 		return nil, err
 	}
-	//account := crypto.PubkeyToAddress(privateKey.PublicKey)
-	//
-	//nonce, err := GetCurrentNonce(client, account)
-	//if err != nil {
-	//	return nil, err
-	//}
+	var baseGas *big.Int
+	if chainId.Cmp(big.NewInt(1)) == 0 {
+		baseGas,_ = new(big.Int).SetString("19000000000",10)
+	}else{
+		baseGas,_ = new(big.Int).SetString("3000000000",10)
+	}
+	if gasPrice.Cmp(baseGas) < 0 {
+		gasPrice = baseGas
+	}
 
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainId)
 	if err != nil {
