@@ -151,9 +151,9 @@ func GetAuthData(privateKey *ecdsa.PrivateKey, chainId *big.Int, client *ethclie
 	}
 	var baseGas *big.Int
 	if chainId.Cmp(big.NewInt(1)) == 0 {
-		baseGas,_ = new(big.Int).SetString("19000000000",10)
-	}else{
-		baseGas,_ = new(big.Int).SetString("3000000000",10)
+		baseGas, _ = new(big.Int).SetString("19000000000", 10)
+	} else {
+		baseGas, _ = new(big.Int).SetString("3000000000", 10)
 	}
 	if gasPrice.Cmp(baseGas) < 0 {
 		gasPrice = baseGas
@@ -274,7 +274,7 @@ func IsHoneypotToken(token common.Address, chainId *big.Int, rdb *redis.Client) 
 			if m["is_open_source"].(string) == "1" {
 				//无代理
 				if m["is_proxy"] != nil && m["is_proxy"].(string) == "0" {
-					if m["is_honeypot"] != nil && m["is_honeypot"].(string) == "0" {
+					if m["is_honeypot"] == nil || m["is_honeypot"].(string) == "0" {
 						r = "safely"
 					}
 				}
